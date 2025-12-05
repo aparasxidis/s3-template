@@ -1,105 +1,44 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: s3-bucket-template
-  title: AWS S3 Bucket Infrastructure
-  description: Create a secure AWS S3 bucket with Terraform infrastructure as code
+  name: s3-bucket-terraform
+  title: S3 Bucket con Terraform
+  description: Crea un bucket S3 utilizando Terraform
   tags:
     - aws
     - s3
     - terraform
     - infrastructure
-    - storage
 spec:
   owner: user:guest
   type: infrastructure
   
   parameters:
-    - title: Project Information
+    - title: S3 Bucket Configuration
       required:
-        - project_name
-        - owner_email
+        - s3name
+        - acl
       properties:
-        project_name:
-          title: Project Name
+        s3name:
+          title: S3 Bucket Name
           type: string
-          description: Name of your project (will be used in S3 bucket naming)
+          description: Unique name of the S3 bucket component
           pattern: '^[a-z0-9-]+$'
           ui:autofocus: true
           ui:help: 'Only lowercase letters, numbers, and hyphens allowed'
-        description:
-          title: Project Description
+        acl:
+          title: Access Control List
           type: string
-          description: Brief description of your project
-          ui:widget: textarea
-          ui:options:
-            rows: 3
-        owner_email:
-          title: Owner Email
-          type: string
-          description: Your email address for project ownership
-          format: email
-          ui:help: 'Used for AWS resource tagging and notifications'
-
-    - title: AWS Configuration
-      required:
-        - aws_region
-        - environment
-      properties:
-        aws_region:
-          title: AWS Region
-          type: string
-          description: AWS region where the S3 bucket will be created
-          default: us-east-1
+          description: Access control level for the S3 bucket
+          default: private
           enum:
-            - us-east-1
-            - us-east-2
-            - us-west-1
-            - us-west-2
-            - eu-west-1
-            - eu-west-2
-            - eu-central-1
-            - ap-southeast-1
-            - ap-southeast-2
-            - ap-northeast-1
+            - private
+            - public-read
+            - public-read-write
           enumNames:
-            - 'US East (N. Virginia)'
-            - 'US East (Ohio)'
-            - 'US West (N. California)'
-            - 'US West (Oregon)'
-            - 'Europe (Ireland)'
-            - 'Europe (London)'
-            - 'Europe (Frankfurt)'
-            - 'Asia Pacific (Singapore)'
-            - 'Asia Pacific (Sydney)'
-            - 'Asia Pacific (Tokyo)'
-        environment:
-          title: Environment
-          type: string
-          description: Deployment environment
-          default: dev
-          enum:
-            - dev
-            - staging
-            - prod
-          enumNames:
-            - Development
-            - Staging
-            - Production
-
-    - title: S3 Bucket Configuration
-      properties:
-        enable_versioning:
-          title: Enable Versioning
-          type: boolean
-          description: Enable versioning for the S3 bucket
-          default: true
-          ui:help: 'Recommended for production environments'
-        enable_lifecycle:
-          title: Enable Lifecycle Management
-          type: boolean
-          description: Automatically clean up old object versions
-          default: true
+            - Private
+            - Public Read
+            - Public Read/Write
 
     - title: Repository Configuration
       required:
@@ -121,22 +60,28 @@ spec:
       input:
         url: https://github.com/aparasxidis/infrastructure
         values:
-          project_name: ${{ parameters.project_name }}
-          description: ${{ parameters.description }}
-          owner_email: ${{ parameters.owner_email }}
-          aws_region: ${{ parameters.aws_region }}
-          environment: ${{ parameters.environment }}
-          enable_versioning: ${{ parameters.enable_versioning }}
-          enable_lifecycle: ${{ parameters.enable_lifecycle }}
+          s3name: ${{ parameters.s3name }}
+          acl: ${{ parameters.acl }}
 
     - id: publish
       name: Publish to GitHub
       action: publish:github
       input:
         allowedHosts: ['github.com']
-        description: 'AWS S3 bucket infrastructure for ${{ parameters.project_name }}'
+        description: 'AWS S3 bucket infrastructure for ${{ parameters.s3name }}'
         repoUrl: ${{ parameters.repo_url }}
         defaultBranch: main
+
+    - id: trigger-workflow
+      name: Trigger Terraform Deployment
+      action: github:actions:dispatch
+      input:
+        workflowId: terraform-deploy.yml
+        repoUrl: ${{ parameters.repo_url }}
+        branchOrTagName: main
+        workflowInputs:
+          s3name: ${{ parameters.s3name }}
+          acl: ${{ parameters.acl }}
 
     - id: register
       name: Register in Backstage Catalog
@@ -150,6 +95,9 @@ spec:
       - title: Repository
         url: ${{ steps.publish.output.remoteUrl }}
         icon: github
+      - title: GitHub Actions
+        url: ${{ steps.publish.output.remoteUrl }}/actions
+        icon: github
       - title: Open in Backstage Catalog
-        url: '/catalog/default/component/${{ parameters.project_name }}-infrastructure'
+        url: '/catalog/default/component/${{ parameters.s3name }}-infrastructure'
         icon: catalog
