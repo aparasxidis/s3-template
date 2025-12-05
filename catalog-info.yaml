@@ -1,0 +1,8 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  name: s3-template-location
+  description: AWS S3 Bucket Template Location
+spec:
+  targets:
+    - terraform/s3.yaml
