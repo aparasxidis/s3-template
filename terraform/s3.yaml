@@ -2,98 +2,48 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: s3-bucket-terraform
-  title: AWS S3 Bucket with Terraform
-  description: Create an AWS S3 bucket using Terraform infrastructure as code
-  tags:
-    - aws
-    - s3
-    - terraform
-    - infrastructure
+  title: S3 Bucket with Terraform
+  description: Create an S3 bucket using Terraform
 spec:
   owner: user:guest
-  type: infrastructure
-  
+  type: service
   parameters:
-    - title: S3 Bucket Configuration
-      required:
-        - s3name
-        - acl
-        - repo_url
-      properties:
-        s3name:
-          title: S3 Bucket Name
-          type: string
-          description: Unique name of the S3 bucket component
-          pattern: '^[a-z0-9-]+$'
-          ui:autofocus: true
-          ui:help: 'Only lowercase letters, numbers, and hyphens allowed'
-        acl:
-          title: Access Control List
-          type: string
-          description: Access control level for the S3 bucket
-          default: private
-          enum:
-            - private
-            - public-read
-            - public-read-write
-          enumNames:
-            - Private
-            - Public Read
-            - Public Read/Write
-        repo_url:
-          title: Repository Location
-          type: string
-          description: GitHub repository URL where infrastructure code will be stored
-          ui:field: RepoUrlPicker
-          ui:options:
-            allowedHosts:
-              - github.com
+  - title: Configure S3 Bucket
+    required:
+    - s3name
+    - acl
+    properties:
+      s3name:
+        title: S3 Bucket Name
+        type: string
+        description: Unique name of the S3 bucket
+        ui:autofocus: true
+        ui:options:
+          rows: 5
+      acl:
+        title: Access Control List
+        type: string
+        description: Access control level for the S3 bucket
+        default: private
+        enum:
+          - private
+          - public-read
+          - public-read-write
+        enumNames:
+          - Private
+          - Public Read
+          - Public Read/Write
+        ui:options:
+          rows: 5
 
   steps:
-    - id: fetch-base
-      name: Fetch Infrastructure Template
-      action: fetch:template
-      input:
-        url: https://github.com/aparasxidis/infrastructure
-        values:
-          s3name: ${{ parameters.s3name }}
-          acl: ${{ parameters.acl }}
-
-    - id: publish
-      name: Publish to GitHub
-      action: publish:github
-      input:
-        allowedHosts: ['github.com']
-        description: 'AWS S3 bucket infrastructure for ${{ parameters.s3name }}'
-        repoUrl: ${{ parameters.repo_url }}
-        defaultBranch: main
-
-    - id: trigger-workflow
-      name: Trigger Terraform Deployment
-      action: github:actions:dispatch
-      input:
-        workflowId: terraform-deploy.yml
-        repoUrl: ${{ parameters.repo_url }}
-        branchOrTagName: main
-        workflowInputs:
-          s3name: ${{ parameters.s3name }}
-          acl: ${{ parameters.acl }}
-
-    - id: register
-      name: Register in Backstage Catalog
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
-
-  output:
-    links:
-      - title: Repository
-        url: ${{ steps.publish.output.remoteUrl }}
-        icon: github
-      - title: GitHub Actions
-        url: ${{ steps.publish.output.remoteUrl }}/actions
-        icon: github
-      - title: Open in Backstage Catalog
-        url: '/catalog/default/component/${{ parameters.s3name }}-infrastructure'
-        icon: catalog
+  - id: github-action
+    name: Trigger Terraform Deployment
+    action: github:actions:dispatch
+    input:
+      workflowId: terraform-deploy.yml
+      repoUrl: 'github.com?repo=infrastructure&owner=aparasxidis'
+      branchOrTagName: "main"
+      workflowInputs:
+        s3name: ${{ parameters.s3name }}
+        acl: ${{ parameters.acl }}
